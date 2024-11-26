@@ -58,10 +58,11 @@ img_fil_gray = cv2.cvtColor(moneda_original, cv2.COLOR_RGB2GRAY)
 # Aplicar gradiente morfológico para resaltar bordes
 kernel = np.ones((3, 3), np.uint8)
 gradiente = cv2.morphologyEx(img_fil_gray, cv2.MORPH_GRADIENT, kernel)
+imshow(gradiente, title="Gradiente")
 
 # Umbralización de la imagen
 _, thresh = cv2.threshold(gradiente, 150, 255, cv2.THRESH_OTSU)
-imshow(thresh, title="Original")
+imshow(thresh, title="Umbralado")
 
 
 # Reconstrucción de imágenes usando dilatación iterativa
@@ -134,7 +135,7 @@ def imfillhole(img):
     return img_fh
 
 
-# Filtrado Char Mean para reducir ruido con sal
+# Filtrado Char Mean para reducir ruido con pepper
 def charmean(imgn, k=3, Q=1.5):
     """
     Filtro de Char Mean para reducción de ruido.
@@ -147,6 +148,10 @@ def charmean(imgn, k=3, Q=1.5):
         Q: Parámetro de ajuste.
     Returns:
         Imagen filtrada.
+
+    Ruido "salt" (valores altos): Usa un Q < 0.
+
+    Ruido "pepper" (valores bajos): Usa un Q > 0.
     """
     imgn_f = imgn.astype(np.float64)
     if Q < 0:
@@ -158,43 +163,46 @@ def charmean(imgn, k=3, Q=1.5):
     return I
 
 
-# Aplicar filtro Char Mean
+# Aplicar filtro Char Mean con parametros Pepper
+imgn_ch_filt = charmean(thresh, 2)
+imgn_ch_filt8_pepper = imgn_ch_filt.astype(np.uint8)
+imshow(imgn_ch_filt8_pepper, title="CharMean Parametros Pepper")
+
+# Aplicar filtro Char Mean con parametros Salt
 imgn_ch_filt = charmean(thresh, 2, -1.5)
-imgn_ch_filt8 = imgn_ch_filt.astype(np.uint8)
-imshow(imgn_ch_filt8, title="Original")
+imgn_ch_filt8_salt = imgn_ch_filt.astype(np.uint8)
+imshow(imgn_ch_filt8_salt, title="CharMean Parametros Salt")
 
 # Rellenar agujeros y realizar operaciones morfológicas
-img_fh = imfillhole(imgn_ch_filt8)
-imshow(img_fh, title="Original")
+img_fh = imfillhole(imgn_ch_filt8_salt)
+imshow(img_fh, title="Relleno de agujeros con imfillhole")
+
 img_modif = cv2.morphologyEx(img_fh, cv2.MORPH_CLOSE, np.ones((17, 17), np.uint8))
 dilatacion = cv2.dilate(img_modif, np.ones((13, 13), np.uint8))
-imshow(dilatacion, title="Original")
+imshow(dilatacion, title="Imagen con cierre y hacemos una dilatacion")
 
 # Contar monedas con áreas específicas
 num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(dilatacion)
 
-# Filtrar componentes con área mayor a 300
+# Filtrar componentes con área mayor a 950
 filtered_labels = np.zeros_like(labels, dtype=np.uint8)  # Crear una nueva máscara
 for i in range(1, num_labels):  # Ignorar el fondo (etiqueta 0)
     area = stats[i, cv2.CC_STAT_AREA]
     if area > 950:
         filtered_labels[labels == i] = 255  # Mantener el componente
 
-
-imshow(filtered_labels, title="Original")
-
+imshow(filtered_labels, title="Componentes con area mayor a 950")
 
 img_modif3 = cv2.morphologyEx(
     filtered_labels, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)
 )
-imshow(img_modif3, title="Original")
+imshow(img_modif3, title="Componentes a > 950 con cierre")
 
 img_fh2 = imfillhole(img_modif3)
-imshow(img_fh2, title="Original")
-
+imshow(img_fh2, title="Imagen anterior con relleno de agujeros")
 
 erocion = cv2.erode(img_fh2, np.ones((41, 41), np.uint8))
-imshow(erocion, title="Original")
+imshow(erocion, title="Imagen anterior con erosion")
 
 num_labels2, labels2, stats2, centroids2 = cv2.connectedComponentsWithStats(erocion)
 
@@ -203,7 +211,7 @@ cent10 = 0
 peso1 = 0
 cent50 = 0
 
-# Filtrar componentes con área mayor a 300
+# Filtrar componentes con área mayor a 40000 y menor a 47000
 centavos10 = np.zeros_like(labels2, dtype=np.uint8)  # Crear una nueva máscara
 for i in range(1, num_labels2):  # Ignorar el fondo (etiqueta 0)
     area = stats2[i, cv2.CC_STAT_AREA]
@@ -211,9 +219,9 @@ for i in range(1, num_labels2):  # Ignorar el fondo (etiqueta 0)
         cent10 += 1
         centavos10[labels2 == i] = 255  # Mantener el componente
 
-imshow(centavos10, title="Original")
+imshow(centavos10, title="10 Centavos")
 
-# Filtrar componentes con área mayor a 300
+# Filtrar componentes con área mayor a 60000 y menor a 70000
 peso = np.zeros_like(labels2, dtype=np.uint8)  # Crear una nueva máscara
 for i in range(1, num_labels2):  # Ignorar el fondo (etiqueta 0)
     area = stats2[i, cv2.CC_STAT_AREA]
@@ -221,10 +229,9 @@ for i in range(1, num_labels2):  # Ignorar el fondo (etiqueta 0)
         peso1 += 1
         peso[labels2 == i] = 255  # Mantener el componente
 
-imshow(peso, title="Original")
+imshow(peso, title="1 Peso")
 
-
-# Filtrar componentes con área mayor a 300
+# Filtrar componentes con área mayor a 78000 y menor a 83000
 centavos50 = np.zeros_like(labels2, dtype=np.uint8)  # Crear una nueva máscara
 for i in range(1, num_labels2):  # Ignorar el fondo (etiqueta 0)
     area = stats2[i, cv2.CC_STAT_AREA]
@@ -232,31 +239,30 @@ for i in range(1, num_labels2):  # Ignorar el fondo (etiqueta 0)
         cent50 += 1
         centavos50[labels2 == i] = 255  # Mantener el componente
 
-imshow(centavos50, title="Original")
+imshow(centavos50, title="50 centavos")
+
 print(f"Tenemos un total de {cent10} monedas de 10 centavos")
 print(f"Tenemos un total de {cent50} monedas de 50 centavos")
 print(f"Tenemos un total de {peso1} monedas de un peso")
-print(f"Tenemos un TOTAL de: {cent10*0.10+cent50*0.50+peso1} ")
-
+print(f"Tenemos un total de: {cent10*0.10+cent50*0.50+peso1} ")
 
 num_labels3, labels3, stats3, centroids3 = cv2.connectedComponentsWithStats(
-    imgn_ch_filt8
+    imgn_ch_filt8_salt
 )
 
-# Filtrar componentes con área mayor a 300
+# Filtrar componentes con área menor a 800
 filtered_labels3 = np.zeros_like(labels3, dtype=np.uint8)  # Crear una nueva máscara
 for i in range(1, num_labels3):  # Ignorar el fondo (etiqueta 0)
     area = stats3[i, cv2.CC_STAT_AREA]
     if area < 800:
         filtered_labels3[labels3 == i] = 255  # Mantener el componente
 
-
-imshow(filtered_labels3, title="Original")
+imshow(filtered_labels3, title="Dados enteros")
 
 img_fh_dado = imfillhole(filtered_labels3)
 
 erocion_dado = cv2.erode(img_fh_dado, np.ones((17, 17), np.uint8))
-imshow(erocion_dado, title="Original")
+imshow(erocion_dado, title="Dados erosionados(solo los puntitos)")
 
 # Contar dados en la imagen y sumar las caras visibles
 num_labels4, labels4, stats4, centroids4 = cv2.connectedComponentsWithStats(

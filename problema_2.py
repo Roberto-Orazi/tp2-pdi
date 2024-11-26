@@ -32,15 +32,16 @@ def imshow(
 
 
 # Lista de nombres de imágenes
-for i in ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]:
-    # Leer la imagen
+
+# for i in ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]: Leer la imagen
+for i in ["01", "02"]:
     patente = cv2.imread(f"img{i}.png", cv2.IMREAD_COLOR)
     patente_original = cv2.cvtColor(patente, cv2.COLOR_BGR2RGB)
     patente_gray = cv2.cvtColor(patente_original, cv2.COLOR_RGB2GRAY)
 
     # Umbral binario
     _, thresh = cv2.threshold(patente_gray, 100, 255, cv2.THRESH_BINARY)
-    # imshow(thresh, title='imagen binaria')
+    imshow(thresh, title="imagen binaria")
     # ---------------------------------------------------------------------------------------------------------------------------
 
     # Componentes conectados
@@ -52,7 +53,7 @@ for i in ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"
         area = stats[i_label, cv2.CC_STAT_AREA]
         if area < 300 or 1000 < area < 2000 or area > 75000:
             filtered_labels[labels == i_label] = 255
-    # imshow(filtered_labels, title='imagen filtrada por el area de los componentes')
+    imshow(filtered_labels, title="imagen filtrada por el area de los componentes")
     # ---------------------------------------------------------------------------------------------------------------------------
 
     # Encontrar contornos
@@ -73,7 +74,8 @@ for i in ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"
             # Dibujar el rectángulo en la imagen binaria
             binary_output[y : y + h, x : x + w] = thresh[y : y + h, x : x + w]
 
-    # Mostrar la imagen binaria resultante imshow(binary_output, title='Imagen con Regiones Binarias Filtradas')
+    # Mostrar la imagen binaria resultante
+    imshow(binary_output, title="Imagen con Regiones Binarias Filtradas")
 
     # ---------------------------------------------------------------------------------------------------------------------------
 
@@ -89,7 +91,7 @@ for i in ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"
         if 4 < area2 < 200 or 600 < area2 < 700 or 1000 < area2 < 2300:
             filtered_labels2[labels2 == i_label2] = 255
 
-    # imshow(filtered_labels2, title='Imagen filtrada por el area de los componentes 2')
+    imshow(filtered_labels2, title="Imagen filtrada por el area de los componentes 2")
 
     # ---------------------------------------------------------------------------------------------------------------------------
 
