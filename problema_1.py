@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import median_filter
 
 
-# Defininimos función para mostrar imágenes
+# Definición de una función para mostrar imágenes
 def imshow(
     img,
     new_fig=True,
@@ -17,6 +17,22 @@ def imshow(
     colorbar=False,
     ticks=False,
 ):
+    """
+    Muestra imágenes usando Matplotlib. Args:
+        img: Imagen a mostrar.
+
+        new_fig: Si True, crea una nueva figura.
+
+        title: Título de la imagen.
+
+        color_img: Si True, muestra en color; en escala de grises por defecto.
+
+        blocking: Si True, bloquea la ejecución hasta cerrar la ventana.
+
+        colorbar: Si True, muestra una barra de colores.
+
+        ticks: Si False, elimina las marcas de los ejes.
+    """
     if new_fig:
         plt.figure()
     if color_img:
@@ -32,20 +48,37 @@ def imshow(
         plt.show(block=blocking)
 
 
+# Leer y preprocesar la imagen
 moneda = cv2.imread("monedas.jpg", cv2.IMREAD_COLOR)
 moneda_original = cv2.cvtColor(moneda, cv2.COLOR_BGR2RGB)
+imshow(moneda_original, title="Original")
+
 img_fil_gray = cv2.cvtColor(moneda_original, cv2.COLOR_RGB2GRAY)
+
+# Aplicar gradiente morfológico para resaltar bordes
 kernel = np.ones((3, 3), np.uint8)
 gradiente = cv2.morphologyEx(img_fil_gray, cv2.MORPH_GRADIENT, kernel)
 
+# Umbralización de la imagen
 _, thresh = cv2.threshold(gradiente, 150, 255, cv2.THRESH_OTSU)
-# imshow(moneda_original, title='Original')
-
 imshow(thresh, title="Original")
 
 
+# Reconstrucción de imágenes usando dilatación iterativa
 def imreconstruct(marker, mask, kernel=None):
-    # Asegurarse de que marker y mask sean del mismo tamaño y tipo
+    """
+    Realiza la reconstrucción morfológica iterativa.
+
+    Args:
+        marker: Imagen inicial (marcador).
+
+        mask: Máscara que define límites.
+
+        kernel: Elemento estructurante (opcional).
+
+    Returns:
+        Imagen reconstruida.
+    """
     if marker.shape != mask.shape:
         raise ValueError("El tamaño de 'marker' y 'mask' debe ser igual")
     if marker.dtype != mask.dtype:
@@ -73,11 +106,19 @@ def imreconstruct(marker, mask, kernel=None):
 
 
 def imfillhole(img):
+    """
+    Rellena agujeros en una imagen binaria.
+
+    Args:
+        img: Imagen binaria.
+    Returns:
+        Imagen con agujeros rellenados.
+    """
     # img: Imagen binaria de entrada. Valores permitidos: 0 (False), 255 (True).
-    mask = np.zeros_like(img)  # Genero mascara para...
+    mask = np.zeros_like(img)  # Genero mascara
     mask = cv2.copyMakeBorder(
         mask[1:-1, 1:-1], 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=int(255)
-    )  # ... seleccionar los bordes.
+    )  # Seleccionar los bordes
     marker = cv2.bitwise_not(
         img, mask=mask
     )  # El marcador lo defino como el complemento de los bordes.
@@ -93,8 +134,20 @@ def imfillhole(img):
     return img_fh
 
 
-# hacemos un filtrado para elimimar ruido con sal
+# Filtrado Char Mean para reducir ruido con sal
 def charmean(imgn, k=3, Q=1.5):
+    """
+    Filtro de Char Mean para reducción de ruido.
+
+    Args:
+        imgn: Imagen de entrada.
+
+        k: Tamaño del kernel.
+
+        Q: Parámetro de ajuste.
+    Returns:
+        Imagen filtrada.
+    """
     imgn_f = imgn.astype(np.float64)
     if Q < 0:
         imgn_f += np.finfo(float).eps
@@ -105,25 +158,21 @@ def charmean(imgn, k=3, Q=1.5):
     return I
 
 
+# Aplicar filtro Char Mean
 imgn_ch_filt = charmean(thresh, 2, -1.5)
 imgn_ch_filt8 = imgn_ch_filt.astype(np.uint8)
-
-
 imshow(imgn_ch_filt8, title="Original")
 
+# Rellenar agujeros y realizar operaciones morfológicas
 img_fh = imfillhole(imgn_ch_filt8)
-
 imshow(img_fh, title="Original")
-
-
 img_modif = cv2.morphologyEx(img_fh, cv2.MORPH_CLOSE, np.ones((17, 17), np.uint8))
 dilatacion = cv2.dilate(img_modif, np.ones((13, 13), np.uint8))
-
-
 imshow(dilatacion, title="Original")
 
-
+# Contar monedas con áreas específicas
 num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(dilatacion)
+
 # Filtrar componentes con área mayor a 300
 filtered_labels = np.zeros_like(labels, dtype=np.uint8)  # Crear una nueva máscara
 for i in range(1, num_labels):  # Ignorar el fondo (etiqueta 0)
@@ -149,6 +198,7 @@ imshow(erocion, title="Original")
 
 num_labels2, labels2, stats2, centroids2 = cv2.connectedComponentsWithStats(erocion)
 
+# Filtrar monedas por áreas
 cent10 = 0
 peso1 = 0
 cent50 = 0
@@ -208,6 +258,7 @@ img_fh_dado = imfillhole(filtered_labels3)
 erocion_dado = cv2.erode(img_fh_dado, np.ones((17, 17), np.uint8))
 imshow(erocion_dado, title="Original")
 
+# Contar dados en la imagen y sumar las caras visibles
 num_labels4, labels4, stats4, centroids4 = cv2.connectedComponentsWithStats(
     erocion_dado
 )
