@@ -108,17 +108,18 @@ def menor_area(monedas):
     area_chica = 100000000
     for i in range(len(monedas)):
         if monedas[i][1] < area_chica:
+            area_chica = monedas[i][1]
             indice = i
     return indice
 
 
 relleno = imfillhole(img_modif)
 
-imshow(relleno, title="Original")
+imshow(relleno, title="Moneda Rellenada")
 
 erocion = cv2.erode(relleno, np.ones((41, 41), np.uint8))
 
-imshow(erocion, title="Original")
+imshow(erocion, title="Monedas Erocionadas")
 
 factordeforma = []
 caja = []
@@ -198,7 +199,7 @@ erocion_dados = cv2.erode(delatacion_copia, np.ones((11, 11), np.uint8))
 relleno_dado = imfillhole(erocion_dados)
 
 erocion_dados2 = cv2.erode(relleno_dado, np.ones((11, 11), np.uint8))
-imshow(erocion_dados2, title="Original")
+imshow(erocion_dados2, title="Dados erocionados")
 
 num_labels_dado, labels_dado, stats_dado, centroids_dado = (
     cv2.connectedComponentsWithStats(erocion_dados2)
@@ -278,4 +279,4 @@ for etiqueta, x, y, ancho, alto in dado_etiqueta:
         thickness=10,
     )
 
-imshow(copia, title="Original")
+imshow(copia, title="Dados y monedas etiquetados por valor")
