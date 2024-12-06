@@ -16,5 +16,6 @@ pip install -r requirements.txt
 ```
 4. Para usar tkinter, instala el paquete python3-tk con el siguiente comando:
 ```bash
-sudo apt-get install python3-tk
+sudo apt-get install python3-tk # Sudo
+brew install python-tk # Brew
 ```

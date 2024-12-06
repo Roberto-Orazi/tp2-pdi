@@ -1,13 +1,13 @@
 import matplotlib
 
-matplotlib.use("TkAgg")
+matplotlib.use("MacOSX")
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import median_filter
 
 
-# Definición de una función para mostrar imágenes
+# Defininimos función para mostrar imágenes
 def imshow(
     img,
     new_fig=True,
@@ -17,22 +17,6 @@ def imshow(
     colorbar=False,
     ticks=False,
 ):
-    """
-    Muestra imágenes usando Matplotlib. Args:
-        img: Imagen a mostrar.
-
-        new_fig: Si True, crea una nueva figura.
-
-        title: Título de la imagen.
-
-        color_img: Si True, muestra en color; en escala de grises por defecto.
-
-        blocking: Si True, bloquea la ejecución hasta cerrar la ventana.
-
-        colorbar: Si True, muestra una barra de colores.
-
-        ticks: Si False, elimina las marcas de los ejes.
-    """
     if new_fig:
         plt.figure()
     if color_img:
@@ -48,38 +32,20 @@ def imshow(
         plt.show(block=blocking)
 
 
-# Leer y preprocesar la imagen
 moneda = cv2.imread("monedas.jpg", cv2.IMREAD_COLOR)
 moneda_original = cv2.cvtColor(moneda, cv2.COLOR_BGR2RGB)
-imshow(moneda_original, title="Original")
-
 img_fil_gray = cv2.cvtColor(moneda_original, cv2.COLOR_RGB2GRAY)
-
-# Aplicar gradiente morfológico para resaltar bordes
-kernel = np.ones((3, 3), np.uint8)
-gradiente = cv2.morphologyEx(img_fil_gray, cv2.MORPH_GRADIENT, kernel)
-imshow(gradiente, title="Gradiente")
-
-# Umbralización de la imagen
-_, thresh = cv2.threshold(gradiente, 150, 255, cv2.THRESH_OTSU)
-imshow(thresh, title="Umbralado")
+filtrado = cv2.GaussianBlur(img_fil_gray, (5, 5), 0)
+canny = cv2.Canny(filtrado, 75, 150)
+dilatacion = cv2.dilate(canny, np.ones((13, 13), np.uint8))
+img_modif = cv2.morphologyEx(dilatacion, cv2.MORPH_CLOSE, np.ones((27, 27), np.uint8))
 
 
-# Reconstrucción de imágenes usando dilatación iterativa
+imshow(dilatacion, title="Original")
+
+
 def imreconstruct(marker, mask, kernel=None):
-    """
-    Realiza la reconstrucción morfológica iterativa.
-
-    Args:
-        marker: Imagen inicial (marcador).
-
-        mask: Máscara que define límites.
-
-        kernel: Elemento estructurante (opcional).
-
-    Returns:
-        Imagen reconstruida.
-    """
+    # Asegurarse de que marker y mask sean del mismo tamaño y tipo
     if marker.shape != mask.shape:
         raise ValueError("El tamaño de 'marker' y 'mask' debe ser igual")
     if marker.dtype != mask.dtype:
@@ -107,19 +73,11 @@ def imreconstruct(marker, mask, kernel=None):
 
 
 def imfillhole(img):
-    """
-    Rellena agujeros en una imagen binaria.
-
-    Args:
-        img: Imagen binaria.
-    Returns:
-        Imagen con agujeros rellenados.
-    """
     # img: Imagen binaria de entrada. Valores permitidos: 0 (False), 255 (True).
-    mask = np.zeros_like(img)  # Genero mascara
+    mask = np.zeros_like(img)  # Genero mascara para...
     mask = cv2.copyMakeBorder(
         mask[1:-1, 1:-1], 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=int(255)
-    )  # Seleccionar los bordes
+    )  # ... seleccionar los bordes.
     marker = cv2.bitwise_not(
         img, mask=mask
     )  # El marcador lo defino como el complemento de los bordes.
@@ -135,137 +93,189 @@ def imfillhole(img):
     return img_fh
 
 
-# Filtrado Char Mean para reducir ruido con pepper
-def charmean(imgn, k=3, Q=1.5):
-    """
-    Filtro de Char Mean para reducción de ruido.
-
-    Args:
-        imgn: Imagen de entrada.
-
-        k: Tamaño del kernel.
-
-        Q: Parámetro de ajuste.
-    Returns:
-        Imagen filtrada.
-
-    Ruido "salt" (valores altos): Usa un Q < 0.
-
-    Ruido "pepper" (valores bajos): Usa un Q > 0.
-    """
-    imgn_f = imgn.astype(np.float64)
-    if Q < 0:
-        imgn_f += np.finfo(float).eps
-    w = np.ones((k, k))
-    I_num = cv2.filter2D(imgn_f ** (Q + 1), cv2.CV_64F, w)
-    I_den = cv2.filter2D(imgn_f**Q, cv2.CV_64F, w)
-    I = I_num / (I_den + np.finfo(float).eps)
-    return I
+def menor_factor_de_forma(factor):
+    primero = 1
+    indiceuno = 0
+    for registro in factor:
+        if registro[1] < primero:
+            primero = registro[1]
+            indiceuno = registro[0]
+    factor.pop(indiceuno - 1)
+    return indiceuno, primero, factor
 
 
-# Aplicar filtro Char Mean con parametros Pepper
-imgn_ch_filt = charmean(thresh, 2)
-imgn_ch_filt8_pepper = imgn_ch_filt.astype(np.uint8)
-imshow(imgn_ch_filt8_pepper, title="CharMean Parametros Pepper")
+def menor_area(monedas):
+    area_chica = 100000000
+    for i in range(len(monedas)):
+        if monedas[i][1] < area_chica:
+            indice = i
+    return indice
 
-# Aplicar filtro Char Mean con parametros Salt
-imgn_ch_filt = charmean(thresh, 2, -1.5)
-imgn_ch_filt8_salt = imgn_ch_filt.astype(np.uint8)
-imshow(imgn_ch_filt8_salt, title="CharMean Parametros Salt")
 
-# Rellenar agujeros y realizar operaciones morfológicas
-img_fh = imfillhole(imgn_ch_filt8_salt)
-imshow(img_fh, title="Relleno de agujeros con imfillhole")
+relleno = imfillhole(img_modif)
 
-img_modif = cv2.morphologyEx(img_fh, cv2.MORPH_CLOSE, np.ones((17, 17), np.uint8))
-dilatacion = cv2.dilate(img_modif, np.ones((13, 13), np.uint8))
-imshow(dilatacion, title="Imagen con cierre y hacemos una dilatacion")
+imshow(relleno, title="Original")
 
-# Contar monedas con áreas específicas
-num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(dilatacion)
+erocion = cv2.erode(relleno, np.ones((41, 41), np.uint8))
 
-# Filtrar componentes con área mayor a 950
-filtered_labels = np.zeros_like(labels, dtype=np.uint8)  # Crear una nueva máscara
-for i in range(1, num_labels):  # Ignorar el fondo (etiqueta 0)
-    area = stats[i, cv2.CC_STAT_AREA]
-    if area > 950:
-        filtered_labels[labels == i] = 255  # Mantener el componente
+imshow(erocion, title="Original")
 
-imshow(filtered_labels, title="Componentes con area mayor a 950")
+factordeforma = []
+caja = []
+num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(erocion)
+for i_label in range(1, num_labels):
+    area = stats[i_label, cv2.CC_STAT_AREA]
+    filtered_labels = np.zeros_like(erocion, dtype=np.uint8)
+    filtered_labels[labels == i_label] = 255
+    contours, _ = cv2.findContours(
+        filtered_labels, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE
+    )
+    for contour in contours:
+        # Calcular el bounding box
+        x, y, w, h = cv2.boundingRect(contour)
+        perimetro = cv2.arcLength(contour, True)  # True porque el contorno está cerrado
+        factor_forma = area / (perimetro**2)
+        factordeforma.append([i_label, factor_forma])
+        caja.append([i_label, area, x, y, w, h])
 
-img_modif3 = cv2.morphologyEx(
-    filtered_labels, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)
+# Los factores de forma mas chicos son los dados
+indice, factor, factordeforma2 = menor_factor_de_forma(factordeforma)
+indice2, factor2, factordeforma3 = menor_factor_de_forma(factordeforma2)
+
+
+monedas = []
+for i in range(len(factordeforma3)):
+    for j in range(len(caja)):
+        if factordeforma3[i][0] == caja[j][0]:
+            monedas.append(caja[j])
+            continue
+
+dados = []
+for i in range(len(caja)):
+    if caja[i][0] == indice:
+        dados.append(caja[i])
+    elif caja[i][0] == indice2:
+        dados.append(caja[i])
+
+# Ahora solo los quedo las monedas y vamos a seleccionar las areas mas chicas , las cuales son las monedas de 10
+# centavos
+monedas_etiqueta = []
+# Sabemos que son 9 monedas, las cuales son las mas chicas son de 10 centavos
+for i in range(len(monedas)):
+    indice = menor_area(monedas)
+    if 0 <= i <= 8:
+        registro = monedas[indice]
+        monedas_etiqueta.append(
+            ["10 centavos", registro[2], registro[3], registro[4], registro[5]]
+        )
+    if 9 <= i <= 13:
+        registro = monedas[indice]
+        monedas_etiqueta.append(
+            ["1 peso", registro[2], registro[3], registro[4], registro[5]]
+        )
+    if 14 <= i <= 16:
+        registro = monedas[indice]
+        monedas_etiqueta.append(
+            ["50 centavos", registro[2], registro[3], registro[4], registro[5]]
+        )
+    monedas.pop(indice)
+
+delatacion_copia = np.zeros_like(dilatacion, dtype=np.uint8)
+delatacion_copia[
+    dados[0][3] : dados[0][3] + dados[0][5], dados[0][2] : dados[0][2] + dados[0][4]
+] = dilatacion[
+    dados[0][3] : dados[0][3] + dados[0][5], dados[0][2] : dados[0][2] + dados[0][4]
+]
+delatacion_copia[
+    dados[1][3] - 20 : dados[1][3] + dados[1][5],
+    dados[1][2] : dados[1][2] + dados[1][4],
+] = dilatacion[
+    dados[1][3] - 20 : dados[1][3] + dados[1][5],
+    dados[1][2] : dados[1][2] + dados[1][4],
+]
+
+erocion_dados = cv2.erode(delatacion_copia, np.ones((11, 11), np.uint8))
+relleno_dado = imfillhole(erocion_dados)
+
+erocion_dados2 = cv2.erode(relleno_dado, np.ones((11, 11), np.uint8))
+imshow(erocion_dados2, title="Original")
+
+num_labels_dado, labels_dado, stats_dado, centroids_dado = (
+    cv2.connectedComponentsWithStats(erocion_dados2)
 )
-imshow(img_modif3, title="Componentes a > 950 con cierre")
-
-img_fh2 = imfillhole(img_modif3)
-imshow(img_fh2, title="Imagen anterior con relleno de agujeros")
-
-erocion = cv2.erode(img_fh2, np.ones((41, 41), np.uint8))
-imshow(erocion, title="Imagen anterior con erosion")
-
-num_labels2, labels2, stats2, centroids2 = cv2.connectedComponentsWithStats(erocion)
-
-# Filtrar monedas por áreas
-cent10 = 0
-peso1 = 0
-cent50 = 0
-
-# Filtrar componentes con área mayor a 40000 y menor a 47000
-centavos10 = np.zeros_like(labels2, dtype=np.uint8)  # Crear una nueva máscara
-for i in range(1, num_labels2):  # Ignorar el fondo (etiqueta 0)
-    area = stats2[i, cv2.CC_STAT_AREA]
-    if 40000 < area < 47000:
-        cent10 += 1
-        centavos10[labels2 == i] = 255  # Mantener el componente
-
-imshow(centavos10, title="10 Centavos")
-
-# Filtrar componentes con área mayor a 60000 y menor a 70000
-peso = np.zeros_like(labels2, dtype=np.uint8)  # Crear una nueva máscara
-for i in range(1, num_labels2):  # Ignorar el fondo (etiqueta 0)
-    area = stats2[i, cv2.CC_STAT_AREA]
-    if 60000 < area < 70000:
-        peso1 += 1
-        peso[labels2 == i] = 255  # Mantener el componente
-
-imshow(peso, title="1 Peso")
-
-# Filtrar componentes con área mayor a 78000 y menor a 83000
-centavos50 = np.zeros_like(labels2, dtype=np.uint8)  # Crear una nueva máscara
-for i in range(1, num_labels2):  # Ignorar el fondo (etiqueta 0)
-    area = stats2[i, cv2.CC_STAT_AREA]
-    if 78000 < area < 83000:
-        cent50 += 1
-        centavos50[labels2 == i] = 255  # Mantener el componente
-
-imshow(centavos50, title="50 centavos")
-
-print(f"Tenemos un total de {cent10} monedas de 10 centavos")
-print(f"Tenemos un total de {cent50} monedas de 50 centavos")
-print(f"Tenemos un total de {peso1} monedas de un peso")
-print(f"Tenemos un total de: {cent10*0.10+cent50*0.50+peso1} ")
-
-num_labels3, labels3, stats3, centroids3 = cv2.connectedComponentsWithStats(
-    imgn_ch_filt8_salt
+foto = np.zeros_like(relleno_dado, dtype=np.uint8)
+for i_label in range(1, num_labels_dado):
+    area_dado = stats_dado[i_label, cv2.CC_STAT_AREA]
+    if area_dado > 1000:
+        foto[labels_dado == i_label] = 255
+dado_etiqueta = []
+cara_dado1 = cv2.connectedComponentsWithStats(
+    foto[
+        dados[0][3] : dados[0][3] + dados[0][5], dados[0][2] : dados[0][2] + dados[0][4]
+    ]
+)
+cara_dado2 = cv2.connectedComponentsWithStats(
+    foto[
+        dados[1][3] : dados[1][3] + dados[1][5], dados[1][2] : dados[1][2] + dados[1][4]
+    ]
 )
 
-# Filtrar componentes con área menor a 800
-filtered_labels3 = np.zeros_like(labels3, dtype=np.uint8)  # Crear una nueva máscara
-for i in range(1, num_labels3):  # Ignorar el fondo (etiqueta 0)
-    area = stats3[i, cv2.CC_STAT_AREA]
-    if area < 800:
-        filtered_labels3[labels3 == i] = 255  # Mantener el componente
-
-imshow(filtered_labels3, title="Dados enteros")
-
-img_fh_dado = imfillhole(filtered_labels3)
-
-erocion_dado = cv2.erode(img_fh_dado, np.ones((17, 17), np.uint8))
-imshow(erocion_dado, title="Dados erosionados(solo los puntitos)")
-
-# Contar dados en la imagen y sumar las caras visibles
-num_labels4, labels4, stats4, centroids4 = cv2.connectedComponentsWithStats(
-    erocion_dado
+dado_etiqueta.append(
+    [
+        f"Valor de la cara = {cara_dado1[0]-1}",
+        dados[0][2],
+        dados[0][3],
+        dados[0][4],
+        dados[0][5],
+    ]
 )
-print(f"Tenemos 2 dados que la suma de sus caras suman {num_labels4-1}")
+dado_etiqueta.append(
+    [
+        f"Valor de la cara = {cara_dado2[0]-1}",
+        dados[1][2],
+        dados[1][3],
+        dados[1][4],
+        dados[1][5],
+    ]
+)
+
+copia = moneda_original.copy()
+for etiqueta, x, y, ancho, alto in monedas_etiqueta:
+    # Coordenadas del rectángulo
+    punto1 = (x, y)  # Esquina superior izquierda
+    punto2 = (x + ancho, y + alto)  # Esquina inferior derecha
+
+    # Dibujar el rectángulo
+    cv2.rectangle(copia, punto1, punto2, color=(0, 255, 0), thickness=10)
+
+    # Añadir la etiqueta (texto)
+    cv2.putText(
+        copia,
+        etiqueta,
+        (x - 10, y - 10),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        fontScale=2,
+        color=(0, 255, 0),
+        thickness=10,
+    )
+
+for etiqueta, x, y, ancho, alto in dado_etiqueta:
+    # Coordenadas del rectángulo
+    punto1 = (x, y)  # Esquina superior izquierda
+    punto2 = (x + ancho, y + alto)  # Esquina inferior derecha
+
+    # Dibujar el rectángulo
+    cv2.rectangle(copia, punto1, punto2, color=(0, 255, 0), thickness=10)
+
+    # Añadir la etiqueta (texto)
+    cv2.putText(
+        copia,
+        etiqueta,
+        (x - 10, y - 10),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        fontScale=2,
+        color=(0, 255, 0),
+        thickness=10,
+    )
+
+imshow(copia, title="Original")
