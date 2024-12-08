@@ -6,47 +6,27 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Definimos la función para mostrar imágenes
-def imshow(
-    img,
-    new_fig=True,
-    title=None,
-    color_img=False,
-    blocking=False,
-    colorbar=False,
-    ticks=False,
-):
-    # Si new_fig es True, creamos una nueva figura
-    if new_fig:
-        plt.figure()
-
-    # Mostrar imagen en color o en escala de grises, según el parámetro color_img
-    if color_img:
-        plt.imshow(img)
-    else:
-        plt.imshow(img, cmap="gray")
-
-    # Añadir título a la imagen si se proporciona
-    plt.title(title)
-    
-    # Si ticks es False, eliminamos las marcas de los ejes
-    if not ticks:
-        plt.xticks([]), plt.yticks([])
-
-    # Si colorbar es True, mostramos la barra de colores
-    if colorbar:
-        plt.colorbar()
-
-    # Mostrar la figura
-    if new_fig:
-        plt.show(block=blocking)
-
 # Lista para almacenar las imágenes procesadas
 imagenes = []
 
 # Lista de nombres de imágenes (asumido que las imágenes están en formato "img01.png", "img02.png", etc.)
-for num_foto in ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']:
-    print(num_foto)  # Imprime el nombre de la imagen que se está procesando
+for num_foto in [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "06",
+    "07",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+]:
+    print(
+        f"Procesando imagen: img{num_foto}.png"
+    )  # Imprime el nombre de la imagen que se está procesando
 
     # Leer la imagen original y convertirla de BGR (formato OpenCV) a RGB
     patente = cv2.imread(f"img{num_foto}.png", cv2.IMREAD_COLOR)
@@ -69,15 +49,16 @@ for num_foto in ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11
         # Aplicar el umbral binario
         _, thresh = cv2.threshold(patente_gray, umbral, 255, cv2.THRESH_BINARY)
 
-    # ---------------------------------------------------------------------------------------------------------------------------
-
         # Obtener los componentes conectados en la imagen umbralizada
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh, 4)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            thresh, 4
+        )
 
-        l_aspecto = []  # Lista para almacenar las componentes con una relación de aspecto adecuada
+        l_aspecto = (
+            []
+        )  # Lista para almacenar las componentes con una relación de aspecto adecuada
 
         # Filtrar componentes con área adecuada
-        filtered_labels = np.zeros_like(labels, dtype=np.uint8)
         for i_label in range(1, num_labels):  # Ignorar el fondo (etiqueta 0)
             area = stats[i_label, cv2.CC_STAT_AREA]
             # Filtrar componentes según su área
@@ -90,7 +71,9 @@ for num_foto in ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11
 
         # Suponemos que son 6 las componentes de la patente
         if len(l_aspecto) >= 6:
-            centro_caja = []  # Lista para almacenar los centros de las cajas de las componentes filtradas
+            centro_caja = (
+                []
+            )  # Lista para almacenar los centros de las cajas de las componentes filtradas
             for z in l_aspecto:
                 x, y, w, h, a = stats[z]
                 cx2 = x + (w / 2)  # Coordenada x del centro
@@ -117,12 +100,9 @@ for num_foto in ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11
                     break
 
     # Foto final con las componentes detectadas
-    esq_x_menor = 1000  # Inicializar las coordenadas de las esquinas de la caja
-    esq_y_menor = 1000
-    esq_x_mayor = 0
-    esq_y_mayor = 0
-
-    copia_foto_original = patente_original.copy()  # Copia de la imagen original para dibujar las cajas
+    copia_foto_original = (
+        patente_original.copy()
+    )  # Copia de la imagen original para dibujar las cajas
 
     # Dibujar las cajas finales detectadas
     for num in cajas_finales:
@@ -132,51 +112,32 @@ for num_foto in ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11
             punto1 = (x, y)  # Esquina superior izquierda
             punto2 = (x + w, y + h)  # Esquina inferior derecha
             # Dibujar el rectángulo verde
-            cv2.rectangle(copia_foto_original, punto1, punto2, color=(0, 255, 0), thickness=1)
-            # Actualizar las coordenadas de las esquinas
-            if x < esq_x_menor:
-                esq_x_menor = x
-            if y < esq_y_menor:
-                esq_y_menor = y
-            if x + w > esq_x_mayor:
-                esq_x_mayor = x + w
-            if y + h > esq_y_mayor:
-                esq_y_mayor = y + h
-
-    # Dibujar un rectángulo azul alrededor de la patente detectada
-    punto1 = (esq_x_menor - 5, esq_y_menor - 5)  # Esquina superior izquierda
-    punto2 = (esq_x_mayor + 5, esq_y_mayor + 5)  # Esquina inferior derecha
-    cv2.rectangle(copia_foto_original, punto1, punto2, color=(255, 0, 0), thickness=2)
+            cv2.rectangle(
+                copia_foto_original, punto1, punto2, color=(0, 255, 0), thickness=1
+            )
 
     # Añadir la imagen procesada a la lista
     imagenes.append(copia_foto_original)
 
-# Organizar las imágenes en una cuadrícula
+# Mostrar las imágenes procesadas como subplots con los bounding boxes
 n_rows = 4  # Número de filas
 n_cols = 3  # Número de columnas
+fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 10))
 
-# Redimensionar las imágenes para que todas tengan el mismo tamaño
-height, width, _ = imagenes[0].shape
-imagenes_resized = [cv2.resize(img, (width, height)) for img in imagenes]
+# Mostrar las imágenes en subplots
+for i, ax in enumerate(axes.ravel()):
+    if i < len(imagenes):
+        # Mostrar la imagen con los bounding boxes
+        ax.imshow(
+            cv2.cvtColor(imagenes[i], cv2.COLOR_BGR2RGB)
+        )  # Convertir de BGR a RGB para Matplotlib
+        ax.set_title(
+            f"Imagen {i + 1}"
+        )  # Añadir el título basado en el índice de la imagen
+        ax.axis("off")  # Ocultar los ejes
+    else:
+        ax.axis("off")  # Ocultar ejes de subplots vacíos
 
-# Concatenar las imágenes por filas
-imagenes_finales = []
-for i in range(n_rows):
-    imagen_fila = np.hstack(imagenes_resized[i * n_cols:(i + 1) * n_cols])
-    imagenes_finales.append(imagen_fila)
-
-# Concatenar todas las filas en una sola imagen
-imagen_completa = np.vstack(imagenes_finales)
-
-# Crear una ventana redimensionable
-cv2.namedWindow('Cuadrícula de Imágenes', cv2.WINDOW_NORMAL)
-
-# Ajustar el tamaño de la ventana (por ejemplo, 1080x1920)
-cv2.resizeWindow('Cuadrícula de Imágenes', 1080, 1920)
-
-# Mostrar la imagen final con todas las imágenes en la cuadrícula
-cv2.imshow('Cuadrícula de Imágenes', imagen_completa)
-
-# Esperar hasta que se presione una tecla para cerrar la ventana
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# Ajustar espaciado entre subplots
+plt.tight_layout()
+plt.show()
