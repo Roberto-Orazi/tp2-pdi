@@ -118,6 +118,16 @@ def menor_factor_de_forma(factor):
     return indiceuno, primero, factor
 
 
+# Función para encontrar el área más pequeña en una lista de monedas
+def menor_area(monedas):
+    area_chica = 100000000  # Valor inicial muy grande para el área
+    for i in range(len(monedas)):
+        if monedas[i][1] < area_chica:  # Si encontramos un área más pequeña
+            area_chica = monedas[i][1]
+            indice = i
+    return indice
+
+
 # Llenar los huecos en la imagen de las monedas
 relleno = imfillhole(img_modif)
 
@@ -169,25 +179,27 @@ for i in range(len(caja)):
     elif caja[i][0] == indice2:
         dados.append(caja[i])
 
-# Definir los umbrales para las monedas
-umbrales = {
-    '10 centavos': (0, 50000),
-    '50 centavos': (70001, 100000),
-    '1 peso': (50001, 70000)
-}
-
-# Listas iniciales para almacenar monedas etiquetadas
+# Ahora solo las monedas quedan, y vamos a seleccionar las más pequeñas (monedas de 10 centavos)
 monedas_etiqueta = []
-
-# Iterar sobre cada moneda
-for moneda in monedas:
-    area = moneda[1]  # Segundo elemento: área
-    etiqueta = 'No definido'
-    for nombre, (min_area, max_area) in umbrales.items():
-        if min_area <= area <= max_area:
-            etiqueta = nombre
-            break
-    monedas_etiqueta.append([etiqueta, moneda[2], moneda[3], moneda[4], moneda[5]])
+for i in range(len(monedas)):
+    indice = menor_area(monedas)
+    # Etiquetar las monedas
+    if 0 <= i <= 8:
+        registro = monedas[indice]
+        monedas_etiqueta.append(
+            ["10 centavos", registro[2], registro[3], registro[4], registro[5]]
+        )
+    if 9 <= i <= 13:
+        registro = monedas[indice]
+        monedas_etiqueta.append(
+            ["1 peso", registro[2], registro[3], registro[4], registro[5]]
+        )
+    if 14 <= i <= 16:
+        registro = monedas[indice]
+        monedas_etiqueta.append(
+            ["50 centavos", registro[2], registro[3], registro[4], registro[5]]
+        )
+    monedas.pop(indice)
 
 # Realizar dilatación y seleccionar los dados
 delatacion_copia = np.zeros_like(dilatacion, dtype=np.uint8)
