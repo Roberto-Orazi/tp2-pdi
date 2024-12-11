@@ -151,32 +151,25 @@ for num_foto in ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11
     # Añadir la imagen procesada a la lista
     imagenes.append(copia_foto_original)
 
-# Organizar las imágenes en una cuadrícula
+# Mostrar las imágenes procesadas como subplots con los bounding boxes
 n_rows = 4  # Número de filas
 n_cols = 3  # Número de columnas
+fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 10))
 
-# Redimensionar las imágenes para que todas tengan el mismo tamaño
-height, width, _ = imagenes[0].shape
-imagenes_resized = [cv2.resize(img, (width, height)) for img in imagenes]
+# Mostrar las imágenes en subplots
+for i, ax in enumerate(axes.ravel()):
+    if i < len(imagenes):
+        # Mostrar la imagen con los bounding boxes
+        ax.imshow(
+            cv2.cvtColor(imagenes[i], cv2.COLOR_BGR2RGB)
+        )  # Convertir de BGR a RGB para Matplotlib
+        ax.set_title(
+            f"Imagen {i + 1}"
+        )  # Añadir el título basado en el índice de la imagen
+        ax.axis("off")  # Ocultar los ejes
+    else:
+        ax.axis("off")  # Ocultar ejes de subplots vacíos
 
-# Concatenar las imágenes por filas
-imagenes_finales = []
-for i in range(n_rows):
-    imagen_fila = np.hstack(imagenes_resized[i * n_cols:(i + 1) * n_cols])
-    imagenes_finales.append(imagen_fila)
-
-# Concatenar todas las filas en una sola imagen
-imagen_completa = np.vstack(imagenes_finales)
-
-# Crear una ventana redimensionable
-cv2.namedWindow('Cuadrícula de Imágenes', cv2.WINDOW_NORMAL)
-
-# Ajustar el tamaño de la ventana (por ejemplo, 1080x1920)
-cv2.resizeWindow('Cuadrícula de Imágenes', 1080, 1920)
-
-# Mostrar la imagen final con todas las imágenes en la cuadrícula
-cv2.imshow('Cuadrícula de Imágenes', imagen_completa)
-
-# Esperar hasta que se presione una tecla para cerrar la ventana
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# Ajustar espaciado entre subplots
+plt.tight_layout()
+plt.show()
